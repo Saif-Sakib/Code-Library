@@ -4,99 +4,111 @@ using ll = long long;
 
 vector<int>a;
 
+struct Node {
+    ll sum;
+    Node() { sum = 0; }
+};
+
+Node merge(const Node &lhs, const Node &rhs) {
+    Node ret;
+    ret.sum = lhs.sum + rhs.sum;
+    return ret;
+}
+
 class SegTree {
 public:
-    int n;                    
-    vector<ll> tree;
+    int n;
+    vector<Node> seg;
 
-    SegTree(int size) { n = size; tree.assign(4 * n, 0LL); }
+    SegTree(int size) : n(size), seg(4 * size) {}
 
     void build(int node, int st, int en) {
-        if (st == en) { tree[node] = a[st]; return; }
+        if (st == en) { seg[node].sum = a[st]; return; }
         int mid = (st + en) / 2;
         build(node * 2, st, mid);
         build(node * 2 + 1, mid + 1, en);
-        tree[node] = tree[node * 2] + tree[node * 2 + 1];
+        seg[node] = merge(seg[node * 2], seg[node * 2 + 1]);
     }
 
-    ll query(int node, int st, int en, int l, int r) {
-        if (st > r || en < l) return 0;
-        if (st >= l && en <= r) return tree[node];
+    Node query(int node, int st, int en, int l, int r) {
+        if (st > r || en < l) return Node();
+        if (st >= l && en <= r) return seg[node];
         int mid = (st + en) / 2;
-        ll q1 = query(node * 2, st, mid, l, r);
-        ll q2 = query(node * 2 + 1, mid + 1, en, l, r);
-        return q1 + q2;
+        Node left = query(node * 2, st, mid, l, r);
+        Node right = query(node * 2 + 1, mid + 1, en, l, r);
+        return merge(left, right);
     }
 
     void update(int node, int st, int en, int idx, ll val) {
-        if (st == en) { tree[node] = val; return; }
+        if (st == en) { seg[node].sum = val; return; }
         int mid = (st + en) / 2;
         if (idx <= mid) update(node * 2, st, mid, idx, val);
         else            update(node * 2 + 1, mid + 1, en, idx, val);
-        tree[node] = tree[node * 2] + tree[node * 2 + 1];
+        seg[node] = merge(seg[node * 2], seg[node * 2 + 1]);
     }
 };
 
 class LazySegTree {
 public:
-    int n;                   
-    vector<ll> tree;
-    vector<ll> lazyAdd;
-    vector<ll> lazySet; 
+    int n;
+    vector<Node> seg;
+    vector<ll> lzAdd; // add value
+    vector<ll> lzSet; // assign value
     vector<bool> hasSet;
 
-    LazySegTree(int size) { 
-        n = size;
-        tree.assign(4 * n, 0LL);
-        lazyAdd.assign(4 * n, 0LL);
-        lazySet.assign(4 * n, 0LL);
-        hasSet.assign(4 * n, 0); 
-    }
+    LazySegTree(int size)
+        : n(size),
+          seg(4 * size),
+          lzAdd(4 * size, 0LL),
+          lzSet(4 * size, 0LL),
+          hasSet(4 * size, false) {}
 
     void build(int node, int st, int en) {
-        if (st == en) { tree[node] = a[st]; return; }
+        if (st == en) { seg[node].sum = a[st]; return; }
         int mid = (st + en) / 2;
         build(node * 2, st, mid);
         build(node * 2 + 1, mid + 1, en);
-        tree[node] = tree[node * 2] + tree[node * 2 + 1];
+        seg[node] = merge(seg[node * 2], seg[node * 2 + 1]);
     }
 
     void set(int node, int st, int en, int l, int r, ll val){
         if(st>r || en<l)return;
         if(st>=l && en<=r){
-            tree[node] = (en-st+1) * val;
+            seg[node].sum = (ll)(en - st + 1) * val;
             hasSet[node] = 1;
-            lazySet[node] = val;
-            lazyAdd[node] = 0;
+            lzSet[node] = val;
+            lzAdd[node] = 0;
             return;
         }
         push(node, st, en);
         int mid = (st+en)/2;
         set(node*2, st, mid, l, r, val);
         set(node*2+1, mid+1, en, l, r, val);
-        tree[node] = tree[node*2] + tree[2*node+1];
+        seg[node] = merge(seg[node * 2], seg[node * 2 + 1]);
     }
 
     void add(int node, int st, int en, int l, int r, ll val) {
         if (st > r || en < l) return;
         if (st >= l && en <= r) {
-            tree[node] += (en - st + 1) * val;
-            lazyAdd[node] += val;
+            seg[node].sum += (ll)(en - st + 1) * val;
+            lzAdd[node] += val;
             return;
         }
         push(node, st, en);
         int mid = (st + en) / 2;
         add(node * 2, st, mid, l, r, val);
         add(node * 2 + 1, mid + 1, en, l, r, val);
-        tree[node] = tree[node * 2] + tree[node * 2 + 1];
+        seg[node] = merge(seg[node * 2], seg[node * 2 + 1]);
     }
 
-    ll query(int node, int st, int en, int l, int r) {
-        if (st > r || en < l) return 0;
-        if (st >= l && en <= r) return tree[node];
+    Node query(int node, int st, int en, int l, int r) {
+        if (st > r || en < l) return Node();
+        if (st >= l && en <= r) return seg[node];
         push(node, st, en);
         int mid = (st + en) / 2;
-        return query(node * 2, st, mid, l, r) + query(node * 2 + 1, mid + 1, en, l, r);
+        Node left = query(node * 2, st, mid, l, r);
+        Node right = query(node * 2 + 1, mid + 1, en, l, r);
+        return merge(left, right);
     }
 
     void push(int node, int st, int en) {
@@ -105,25 +117,29 @@ public:
         int mid = (st + en) / 2;
 
         if (hasSet[node]) {
-            ll v = lazySet[node];
-            tree[lc] = (ll)(mid - st + 1) * v;
+            ll v = lzSet[node];
+            ll leftLen = mid - st + 1;
+            ll rightLen = en - mid;
+            seg[lc].sum = leftLen * v;
             hasSet[lc] = 1;
-            lazySet[lc] = v;
-            lazyAdd[lc] = 0;
-            tree[rc] = (ll)(en - mid) * v;
+            lzSet[lc] = v;
+            lzAdd[lc] = 0;
+            seg[rc].sum = rightLen * v;
             hasSet[rc] = 1;
-            lazySet[rc] = v;
-            lazyAdd[rc] = 0;
+            lzSet[rc] = v;
+            lzAdd[rc] = 0;
             hasSet[node] = 0;
         }
 
-        if (lazyAdd[node] != 0) {
-            ll v = lazyAdd[node];
-            tree[lc] += (ll)(mid - st + 1) * v;
-            tree[rc] += (ll)(en - mid) * v;
-            lazyAdd[lc] += v;
-            lazyAdd[rc] += v;
-            lazyAdd[node] = 0;
+        if (lzAdd[node] != 0) {
+            ll v = lzAdd[node];
+            ll leftLen = mid - st + 1;
+            ll rightLen = en - mid;
+            seg[lc].sum += leftLen * v;
+            seg[rc].sum += rightLen * v;
+            lzAdd[lc] += v;
+            lzAdd[rc] += v;
+            lzAdd[node] = 0;
         }
     }
 };
@@ -151,8 +167,8 @@ int main(){
             int l, r;
             cin>>l>>r;
             l--; r--;
-            ll ans = seg.query(1, 0, n-1, l, r);
-            cout<<ans<<'\n';
+            Node ans = seg.query(1, 0, n-1, l, r);
+            cout<<ans.sum<<'\n';
         }
     }
 }
